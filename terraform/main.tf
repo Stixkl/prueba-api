@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "us-east-1" 
+  region = var.aws_region
 }
 
 data "aws_iam_policy_document" "ecs_task_execution_assume_role" {
@@ -15,14 +15,14 @@ data "aws_iam_policy_document" "ecs_task_execution_assume_role" {
 
 
 resource "aws_vpc" "main_vpc" {
-  cidr_block = "10.0.0.0/16"
+  cidr_block           = var.vpc_cidr_block
   enable_dns_hostnames = true
 }
 
 resource "aws_subnet" "main_subnet" {
   vpc_id                  = aws_vpc.main_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "us-east-1a"
+  cidr_block              = var.subnet_cidr_block
+  availability_zone       = var.availability_zone
   map_public_ip_on_launch = true
 }
 
@@ -47,8 +47,8 @@ resource "aws_route_table_association" "public_subnet_assoc" {
 resource "aws_security_group" "ecs_sg" {
   vpc_id = aws_vpc.main_vpc.id
   ingress {
-    from_port   = 80
-    to_port     = 80
+    from_port   = var.container_port
+    to_port     = var.container_port
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -61,29 +61,29 @@ resource "aws_security_group" "ecs_sg" {
 }
 
 resource "aws_ecr_repository" "app_repo" {
-  name = "nest-app-repo"
+  name = var.ecr_repository_name
 }
 
 resource "aws_ecs_cluster" "main_cluster" {
-  name = "cluster-nest-fargate"
+  name = var.ecs_cluster_name
 }
 
 resource "aws_ecs_task_definition" "app_task" {
-  family                   = "nest-task"
+  family                   = var.ecs_task_family
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = "256"
-  memory                   = "512"
+  cpu                      = var.ecs_task_cpu
+  memory                   = var.ecs_task_memory
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
   container_definitions    = jsonencode([{
-    name      = "nest-container"
-    image     = "${aws_ecr_repository.app_repo.repository_url}:latest"
+    name      = var.container_name
+    image     = "${aws_ecr_repository.app_repo.repository_url}:${var.image_tag}"
     environment = [
-      { name = "PORT", value = "80" },
+      { name = "PORT", value = tostring(var.container_port) },
       { name = "SUPABASE_URL", value = "https://sfqhpphdpuwifhosatxr.supabase.co" },
       { name = "SUPABASE_KEY", value = "sb_publishable_DyylpfiLiLHK4DmWBOYY4Q_O42ZLVxP" }
     ]
-    portMappings = [{ containerPort = 80, hostPort = 80 }]
+    portMappings = [{ containerPort = var.container_port, hostPort = var.container_port }]
   }])
 }
 
@@ -98,11 +98,11 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
 }
 
 resource "aws_ecs_service" "app_service" {
-  name            = "nest-service"
+  name            = var.ecs_service_name
   cluster         = aws_ecs_cluster.main_cluster.id
   task_definition = aws_ecs_task_definition.app_task.arn
   launch_type     = "FARGATE"
-  desired_count   = 1
+  desired_count   = var.desired_count
 
   network_configuration {
     subnets          = [aws_subnet.main_subnet.id]

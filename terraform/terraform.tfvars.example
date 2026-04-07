@@ -1,2 +1,16 @@
 supabase_url = "https://your-project.supabase.co"
 supabase_key = "replace-me"
+aws_region = "us-east-1"
+vpc_cidr_block = "10.0.0.0/16"
+subnet_cidr_block = "10.0.1.0/24"
+availability_zone = "us-east-1a"
+container_port = 80
+ecr_repository_name = "nest-app-repo"
+ecs_cluster_name = "cluster-nest-fargate"
+ecs_task_family = "nest-task"
+ecs_task_cpu = "256"
+ecs_task_memory = "512"
+container_name = "nest-container"
+image_tag = "latest"
+ecs_service_name = "nest-service"
+desired_count = 1
